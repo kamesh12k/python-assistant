@@ -1,18 +1,18 @@
 # AI Research Assistant
 
-Upload PDF research papers and ask questions — powered by Claude + RAG (Retrieval-Augmented Generation).
+Upload PDF research papers and ask questions — powered by Google Gemini + RAG (Retrieval-Augmented Generation).
 
 ## How it works
 
 1. **Upload** a PDF → text is extracted, chunked, and embedded into a FAISS vector index
-2. **Ask a question** → the top-5 most relevant chunks are retrieved and sent to Claude as context
-3. **Claude answers** with a streamed, cited, markdown-formatted response
+2. **Ask a question** → the top-5 most relevant chunks are retrieved and sent to Gemini as context
+3. **Gemini answers** with a streamed, cited, markdown-formatted response
 
 ## Stack
 
 | Layer | Tech |
 |---|---|
-| LLM | Anthropic Claude (claude-opus-4-6) |
+| LLM | Google Gemini (gemini-2.5-flash) |
 | Embeddings | `sentence-transformers/all-MiniLM-L6-v2` |
 | Vector DB | FAISS (in-memory) |
 | PDF parsing | PyMuPDF (fitz) |
@@ -31,12 +31,12 @@ pip install -r requirements.txt
 ### 2. Set your API key
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export GEMINI_API_KEY=your_gemini_api_key
 ```
 
 Or create a `.env` file in `/backend`:
 ```
-ANTHROPIC_API_KEY=sk-ant-...
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
 ### 3. Run the backend

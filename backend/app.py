@@ -3,7 +3,8 @@ import json
 from flask import Flask, request, jsonify, stream_with_context, Response
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-import anthropic
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -24,7 +25,20 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 # Global state
 rag_engine = RAGEngine()
 document_store: dict = {}  # filename -> metadata
-client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+client = None
+
+
+def get_gemini_client():
+    """Lazily load or return Google GenAI client."""
+    global client
+    if client is not None:
+        return client
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if api_key:
+        client = genai.Client(api_key=api_key)
+    return client
 
 
 def allowed_file(filename):
@@ -142,17 +156,27 @@ Question: {question}
 
 Please answer based on the context above."""
 
-    def generate():
-        with client.messages.stream(
-            model="claude-opus-4-6",
-            max_tokens=1024,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_message}]
-        ) as stream:
-            for text in stream.text_stream:
-                yield f"data: {json.dumps({'text': text})}\n\n"
+    gemini_client = get_gemini_client()
+    if not gemini_client:
+        return jsonify({'error': 'GEMINI_API_KEY is not set. Please add it to your backend/.env file.'}), 500
 
-        yield f"data: {json.dumps({'done': True, 'sources': list(sources)})}\n\n"
+    def generate():
+        try:
+            response_stream = gemini_client.models.generate_content_stream(
+                model=GEMINI_MODEL,
+                contents=user_message,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    temperature=0.3,
+                ),
+            )
+            for chunk in response_stream:
+                if chunk.text:
+                    yield f"data: {json.dumps({'text': chunk.text})}\n\n"
+
+            yield f"data: {json.dumps({'done': True, 'sources': list(sources)})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return Response(
         stream_with_context(generate()),
